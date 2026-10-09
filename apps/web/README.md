@@ -12,6 +12,8 @@ pnpm --filter @whiteboard/web sync-server
 pnpm --filter @whiteboard/web dev
 ```
 
+`@hocuspocus/server` is an optional dependency (Node 22+). On Node 20, `pnpm install` skips it so CI stays green; run the sync server on Node 22 locally.
+
 Open http://localhost:5173 in two browser windows.
 
 1. Register a name and password (at least 4 characters). The mock API is on by default.

@@ -23,8 +23,10 @@
     "vue-router": "4.5.1",
     "yjs": "^13.6.27"
   },
+  "optionalDependencies": {
+    "@hocuspocus/server": "^4.7.0"
+  },
   "devDependencies": {
-    "@hocuspocus/server": "^4.7.0",
     "@types/node": "catalog:",
     "@vitejs/plugin-vue": "^6.0.1",
     "eslint": "catalog:",
