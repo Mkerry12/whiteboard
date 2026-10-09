@@ -1,0 +1,52 @@
+{
+  "name": "@whiteboard/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "format": "prettier --write . --ignore-path ../../.prettierignore",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/cli.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@hocuspocus/extension-database": "3.4.4",
+    "@hocuspocus/extension-redis": "3.4.4",
+    "@hocuspocus/server": "3.4.4",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.5",
+    "ioredis": "^5.8.2",
+    "jose": "^6.2.12",
+    "pg": "^8.16.3",
+    "ws": "^8.18.3",
+    "yjs": "^13.6.33",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@hocuspocus/common": "3.4.4",
+    "@hocuspocus/provider": "3.4.4",
+    "@types/node": "catalog:",
+    "@types/pg": "^8.15.5",
+    "@types/ws": "^8.18.1",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "catalog:",
+    "lib0": "^0.2.117",
+    "prettier": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "^4.1.11",
+    "y-protocols": "^1.0.6"
+  }
+}
