@@ -4,17 +4,15 @@
 
 ## 目录
 
-| 路径 | 负责人 | 内容 |
-| --- | --- | --- |
-| `apps/web` | 前端 | Vue 3 + Vite + TypeScript，画布使用 Konva，协同使用 Yjs |
-| `apps/server` | 后端 | Node.js + TypeScript，HTTP API 与 Hocuspocus（Yjs）WebSocket，PostgreSQL 存储，Redis 跨实例广播 |
-| `packages/shared` | 共享 | 前后端共用的 TypeScript 类型，包名为 `@whiteboard/shared` |
+- `apps/web`（前端）：Vue 3 + Vite + TypeScript，画布使用 Konva，协同使用 Yjs
+- `apps/server`（后端）：Node.js + TypeScript，HTTP API 与 Hocuspocus（Yjs）WebSocket，PostgreSQL 存储，Redis 跨实例广播
+- `packages/shared`（共享）：前后端共用的 TypeScript 类型，包名为 `@whiteboard/shared`
 
 应用的 `tsconfig.json` 应 `extends` 根目录的 `tsconfig.base.json`。ESLint（扁平配置，含 TypeScript 与 Vue）和 Prettier 配置在仓库根目录，在子目录执行时会向上找到。
 
 ## 环境
 
-- Node.js 20 或更高，见 `.nvmrc`
+- Node.js 20.19 或更高。`.nvmrc` 写的是 `20`，安装的是当前 Node 20；ESLint 10 需要 20.19 以上
 - pnpm `10.33.4`，见根目录 `package.json` 的 `packageManager`
 - Docker Compose v2，仅用于启动本地数据库
 

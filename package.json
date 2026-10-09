@@ -26,6 +26,8 @@
     "vue-eslint-parser": "catalog:"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
