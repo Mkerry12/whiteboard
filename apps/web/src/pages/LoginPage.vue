@@ -9,6 +9,7 @@ const router = useRouter();
 const auth = useAuthStore();
 
 const mode = ref<"login" | "register">("login");
+const email = ref("");
 const displayName = ref("");
 const password = ref("");
 const confirm = ref("");
@@ -24,9 +25,9 @@ async function submit(): Promise<void> {
   pending.value = true;
   try {
     if (mode.value === "register") {
-      await auth.register(displayName.value, password.value);
+      await auth.register(email.value, displayName.value, password.value);
     } else {
-      await auth.login(displayName.value, password.value);
+      await auth.login(email.value, password.value);
     }
     await router.push(safeInternalPath(route.query.redirect));
   } catch (err) {
@@ -59,11 +60,22 @@ async function submit(): Promise<void> {
       </p>
       <form @submit.prevent="submit">
         <label>
+          Email
+          <input
+            v-model="email"
+            type="email"
+            data-testid="login-email"
+            autocomplete="email"
+            required
+            maxlength="200"
+          />
+        </label>
+        <label v-if="mode === 'register'">
           Name
           <input
             v-model="displayName"
             data-testid="login-name"
-            autocomplete="username"
+            autocomplete="name"
             required
             maxlength="80"
           />
@@ -72,10 +84,14 @@ async function submit(): Promise<void> {
           Password
           <input
             v-model="password"
+            data-testid="login-password"
             type="password"
-            autocomplete="current-password"
+            :autocomplete="
+              mode === 'login' ? 'current-password' : 'new-password'
+            "
             required
-            minlength="4"
+            minlength="8"
+            maxlength="128"
           />
         </label>
         <label v-if="mode === 'register'">

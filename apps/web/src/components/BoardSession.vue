@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { getApi, syncUrl } from "../api";
+import { collaborationDocumentName } from "../api/contract";
 import type { BoardAccess } from "../api/types";
 import { addPerfShapes, ensureShapeCount } from "../canvas/seed";
 import { showEditingTools, type Tool } from "../canvas/tools";
@@ -32,7 +33,7 @@ const {
   setCursor,
 } = useCollabSession({
   url: syncUrl(),
-  documentName: props.access.board.id,
+  documentName: collaborationDocumentName(props.access.board.id),
   token: props.access.token,
   user: props.user,
 });
@@ -43,14 +44,14 @@ const stroke = ref<string>(STROKE_COLORS[0]);
 const strokeWidth = ref(3);
 const fill = ref<string>("transparent");
 const shareOpen = ref(false);
-const boardName = ref(props.access.board.name);
+const boardName = ref(props.access.board.title);
 const nameError = ref("");
 const seeding = ref(false);
 const devTools = import.meta.env.DEV;
 let seededFromQuery = false;
 
 const readOnly = computed(
-  () => props.access.role === "read" || serverReadOnly.value,
+  () => props.access.role === "viewer" || serverReadOnly.value,
 );
 const editing = computed(() => showEditingTools(readOnly.value));
 const statusLabel = computed(() => {
@@ -120,15 +121,15 @@ function sendBackward(): void {
 
 async function saveName(): Promise<void> {
   const name = boardName.value.trim();
-  if (!name || name === props.access.board.name) return;
+  if (!name || name === props.access.board.title) return;
   try {
     const board = await getApi().renameBoard(props.access.board.id, name);
-    boardName.value = board.name;
+    boardName.value = board.title;
     nameError.value = "";
-    document.title = `${board.name} · Whiteboard`;
+    document.title = `${board.title} · Whiteboard`;
   } catch (err) {
     nameError.value = err instanceof Error ? err.message : "Could not rename";
-    boardName.value = props.access.board.name;
+    boardName.value = props.access.board.title;
   }
 }
 
@@ -155,6 +156,7 @@ function onCursor(point: { x: number; y: number } | null): void {
           v-model="boardName"
           class="name-input"
           aria-label="Board name"
+          maxlength="200"
           @blur="saveName"
         />
         <h1 v-else class="board-title">{{ boardName }}</h1>
@@ -196,6 +198,7 @@ function onCursor(point: { x: number; y: number } | null): void {
         v-if="canManage"
         type="button"
         class="primary"
+        data-testid="share-board"
         @click="shareOpen = true"
       >
         Share

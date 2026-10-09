@@ -36,6 +36,12 @@ curl http://localhost:3000/health/ready
 
 `GET /health/ready` returns 200 only when both Postgres and Redis answer.
 
+To point the Vue app at this process, see **Run against the real backend** in the repository root README. The web dev command is:
+
+```bash
+VITE_USE_MOCK=false VITE_API_URL=http://localhost:3000 VITE_SYNC_URL=ws://localhost:3000/collaboration pnpm --filter @whiteboard/web dev
+```
+
 Run a second instance for the Redis demo by setting a distinct `PORT` and `INSTANCE_ID` (`INSTANCE_ID` must stay under 200 characters). Both processes share `REDIS_URL` and `REDIS_PREFIX`.
 
 ## Scripts

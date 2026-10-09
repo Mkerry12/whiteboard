@@ -1,10 +1,10 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { getApi } from "../api";
-import type { BoardSummary } from "../api/types";
+import type { Whiteboard } from "../api/types";
 
 export const useBoardsStore = defineStore("boards", () => {
-  const boards = ref<BoardSummary[]>([]);
+  const boards = ref<Whiteboard[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -21,8 +21,8 @@ export const useBoardsStore = defineStore("boards", () => {
     }
   }
 
-  async function create(name: string): Promise<BoardSummary> {
-    const board = await getApi().createBoard({ name });
+  async function create(title: string): Promise<Whiteboard> {
+    const board = await getApi().createBoard({ title });
     boards.value = [
       board,
       ...boards.value.filter((item) => item.id !== board.id),
@@ -30,8 +30,8 @@ export const useBoardsStore = defineStore("boards", () => {
     return board;
   }
 
-  async function rename(id: string, name: string): Promise<void> {
-    const board = await getApi().renameBoard(id, name);
+  async function rename(id: string, title: string): Promise<void> {
+    const board = await getApi().renameBoard(id, title);
     boards.value = boards.value.map((item) => (item.id === id ? board : item));
   }
 

@@ -14,7 +14,7 @@ pnpm --filter @whiteboard/web dev
 
 Open http://localhost:5173 in two browser windows.
 
-1. Register a name and password (at least 4 characters). The mock API is on by default.
+1. Register an email, a name, and a password (at least 8 characters). The mock API is on by default.
 2. Create a board and open it.
 3. Draw in both windows. Shapes, colors, and z-order meet on the same document. Each window shows the other person's cursor and name.
 4. Close one window. That cursor disappears.
@@ -56,7 +56,7 @@ Copy `apps/web/.env.example` if you want to override the defaults. The app runs 
 
 `SYNC_PORT` (1234) and `SYNC_HOST` (`0.0.0.0`) configure the dev sync server only.
 
-With `VITE_USE_MOCK=false` the HTTP client calls the contract in `src/api/types.ts`. Sync still uses `HocuspocusProvider` with the board id as the document name and the session or share token.
+With `VITE_USE_MOCK=false` the HTTP client follows `docs/backend/api.md` (also written down in `src/api/types.ts`). The provider document name is `whiteboard:<board id>`. The provider token is `jwt:<accessToken>` on your own board and `share:<shareToken>` when the URL has `?share=`. A `readonly` scope from the server hides the drawing tools. See **Run against the real backend** in the repository root README. Set `VITE_SYNC_URL=ws://localhost:3000/collaboration` for that mode. The default `ws://localhost:1234` is only the local dev sync server.
 
 ## Checks
 

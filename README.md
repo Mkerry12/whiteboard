@@ -43,6 +43,29 @@ cp .env.example .env
 docker compose -f docker-compose.dev.yml down
 ```
 
+## Run against the real backend
+
+`apps/web` talks to `apps/server` when the mock is off. The HTTP shapes and the WebSocket handshake are `docs/backend/api.md`.
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+cp apps/server/.env.example apps/server/.env
+pnpm install
+pnpm --filter @whiteboard/server dev
+```
+
+The API listens on `http://localhost:3000`. Collaboration is `ws://localhost:3000/collaboration`. Copy `apps/server/.env.example` rather than the root `.env.example`: the root `JWT_SECRET=replace-me` is rejected at startup. `apps/server/.env` overrides the root file.
+
+In another shell:
+
+```bash
+VITE_USE_MOCK=false VITE_API_URL=http://localhost:3000 VITE_SYNC_URL=ws://localhost:3000/collaboration pnpm --filter @whiteboard/web dev
+```
+
+Open http://localhost:5173. Register with an email, a display name, and a password of at least 8 characters. Create a board, rename it, and draw. Share → copy the edit link, revoke a link when you are done with it. A second account that opens the edit link sees the same shapes and cursors. A view-only link hides the tools, and the server drops that socket's writes. Deleting the board removes it from the list. Refreshing the editor reloads the last Yjs snapshot. Visiting `/boards` while logged out redirects to `/login`.
+
+`pnpm test` includes an API-level walk of that flow (`apps/server/test/client-flow.test.ts`) on an in-memory Postgres, with no Docker.
+
 ## 常用命令
 
 ```bash

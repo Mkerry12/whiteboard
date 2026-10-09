@@ -82,11 +82,11 @@ function logout(): void {
   <div class="list-page">
     <header class="topbar">
       <span class="brand">Whiteboard</span>
-      <span v-if="auth.user" class="who">
-        <span class="avatar" :style="{ background: auth.user.color }">
-          {{ initials(auth.user.displayName) }}
+      <span v-if="auth.presence" class="who">
+        <span class="avatar" :style="{ background: auth.presence.color }">
+          {{ initials(auth.presence.displayName) }}
         </span>
-        {{ auth.user.displayName }}
+        {{ auth.presence.displayName }}
       </span>
       <button type="button" class="ghost" @click="logout">Log out</button>
     </header>
@@ -101,7 +101,7 @@ function logout(): void {
             v-model="draftName"
             placeholder="New board name"
             aria-label="New board name"
-            maxlength="80"
+            maxlength="200"
           />
           <button class="primary" type="submit" :disabled="creating">
             Create
@@ -124,7 +124,7 @@ function logout(): void {
         >
           <RouterLink class="card-link" :to="`/boards/${board.id}`">
             <span class="card-mark" />
-            <h2 v-if="editingId !== board.id">{{ board.name }}</h2>
+            <h2 v-if="editingId !== board.id">{{ board.title }}</h2>
           </RouterLink>
           <form
             v-if="editingId === board.id"
@@ -143,7 +143,7 @@ function logout(): void {
             <button
               type="button"
               class="text-button"
-              @click="startRename(board.id, board.name)"
+              @click="startRename(board.id, board.title)"
             >
               Rename
             </button>

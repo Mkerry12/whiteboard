@@ -1,11 +1,10 @@
 import type { BoardId } from "@whiteboard/shared";
-import { ApiError } from "./errors";
+import { ApiError, readApiError } from "./errors";
 import type {
-  BoardAccess,
-  BoardRole,
-  BoardSummary,
   Session,
   ShareLink,
+  ShareRole,
+  Whiteboard,
   WhiteboardApi,
 } from "./types";
 
@@ -31,63 +30,99 @@ export function createHttpApi(options: {
     const text = await response.text();
     const payload = text ? parseJson(text) : null;
     if (!response.ok) {
-      const message =
-        payload &&
-        typeof payload === "object" &&
-        "message" in payload &&
-        typeof payload.message === "string"
-          ? payload.message
-          : text || response.statusText;
-      throw new ApiError(response.status, message);
+      throw readApiError(
+        response.status,
+        payload,
+        text || response.statusText || "Request failed",
+      );
     }
     return payload as T;
   }
 
   return {
     register: (input) =>
-      request<Session>("/api/auth/register", {
+      request<Session>("/api/v1/auth/register", {
         method: "POST",
         body: JSON.stringify(input),
       }),
     login: (input) =>
-      request<Session>("/api/auth/login", {
+      request<Session>("/api/v1/auth/login", {
         method: "POST",
         body: JSON.stringify(input),
       }),
-    logout: () => request<void>("/api/auth/logout", { method: "POST" }),
-    listBoards: () => request<BoardSummary[]>("/api/boards"),
-    createBoard: (input) =>
-      request<BoardSummary>("/api/boards", {
-        method: "POST",
-        body: JSON.stringify(input),
-      }),
-    renameBoard: (id, name) =>
-      request<BoardSummary>(`/api/boards/${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ name }),
-      }),
-    deleteBoard: (id) =>
-      request<void>(`/api/boards/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      }),
-    async getBoard(id: BoardId) {
-      const data = await request<{ board: BoardSummary; role: BoardRole }>(
-        `/api/boards/${encodeURIComponent(id)}`,
-      );
-      const token = getToken();
-      if (!token) throw new ApiError(401, "Sign in required");
-      return { board: data.board, role: data.role, token };
+    async logout() {
+      // The access token is a stateless JWT. Dropping it locally is enough.
     },
-    createShareLink: (boardId, role) =>
-      request<ShareLink>(`/api/boards/${encodeURIComponent(boardId)}/shares`, {
-        method: "POST",
-        body: JSON.stringify({ role }),
-      }),
-    redeemShareToken: (token) =>
-      request<BoardAccess>("/api/shares/redeem", {
-        method: "POST",
-        body: JSON.stringify({ token }),
-      }),
+    async listBoards() {
+      const body = await request<{ whiteboards: Whiteboard[] }>(
+        "/api/v1/whiteboards",
+      );
+      return body.whiteboards;
+    },
+    async createBoard(input) {
+      const body = await request<{ whiteboard: Whiteboard }>(
+        "/api/v1/whiteboards",
+        {
+          method: "POST",
+          body: JSON.stringify(input),
+        },
+      );
+      return body.whiteboard;
+    },
+    async renameBoard(id, title) {
+      const body = await request<{ whiteboard: Whiteboard }>(
+        `/api/v1/whiteboards/${encodeURIComponent(id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ title }),
+        },
+      );
+      return body.whiteboard;
+    },
+    async deleteBoard(id) {
+      await request<void>(`/api/v1/whiteboards/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+    },
+    async getBoard(id: BoardId) {
+      const body = await request<{ whiteboard: Whiteboard }>(
+        `/api/v1/whiteboards/${encodeURIComponent(id)}`,
+      );
+      return body.whiteboard;
+    },
+    async createShareLink(boardId, role: ShareRole) {
+      const body = await request<{ shareLink: ShareLink }>(
+        `/api/v1/whiteboards/${encodeURIComponent(boardId)}/share-links`,
+        {
+          method: "POST",
+          body: JSON.stringify({ role }),
+        },
+      );
+      return body.shareLink;
+    },
+    async listShareLinks(boardId) {
+      const body = await request<{ shareLinks: ShareLink[] }>(
+        `/api/v1/whiteboards/${encodeURIComponent(boardId)}/share-links`,
+      );
+      return body.shareLinks;
+    },
+    async revokeShareLink(boardId, linkId) {
+      const body = await request<{ shareLink: ShareLink }>(
+        `/api/v1/whiteboards/${encodeURIComponent(boardId)}/share-links/${encodeURIComponent(linkId)}`,
+        { method: "DELETE" },
+      );
+      return body.shareLink;
+    },
+    async redeemShareToken(token) {
+      const body = await request<{ whiteboard: Whiteboard }>(
+        "/api/v1/share-links/redeem",
+        {
+          method: "POST",
+          body: JSON.stringify({ token }),
+        },
+      );
+      return body.whiteboard;
+    },
   };
 }
 

@@ -1,69 +1,81 @@
-import type { BoardId, BoardParticipant } from "@whiteboard/shared";
+import type { BoardId } from "@whiteboard/shared";
 
-export type BoardRole = "edit" | "read";
+/**
+ * App-facing API. Field names match `docs/backend/api.md`.
+ * The mock client and `createHttpApi` both implement this interface.
+ *
+ * POST /api/v1/auth/register { email, password, name } -> { user, accessToken }
+ * POST /api/v1/auth/login { email, password } -> { user, accessToken }
+ * GET  /api/v1/whiteboards -> { whiteboards }
+ * POST /api/v1/whiteboards { title } -> { whiteboard }
+ * GET  /api/v1/whiteboards/:boardId -> { whiteboard }
+ * PATCH /api/v1/whiteboards/:boardId { title } -> { whiteboard }
+ * DELETE /api/v1/whiteboards/:boardId
+ * POST /api/v1/whiteboards/:boardId/share-links { role } -> { shareLink }
+ * GET  /api/v1/whiteboards/:boardId/share-links -> { shareLinks }
+ * DELETE /api/v1/whiteboards/:boardId/share-links/:linkId -> { shareLink }
+ * POST /api/v1/share-links/redeem { token } -> { whiteboard }
+ *
+ * Collaboration (separate from these methods): document `whiteboard:<boardId>`,
+ * provider token `jwt:<accessToken>` or `share:<shareToken>`.
+ * Logout is local. Access tokens are stateless JWTs, so there is no logout route.
+ */
 
-export interface SessionUser extends BoardParticipant {
-  color: string;
+export type ShareRole = "editor" | "viewer";
+export type BoardRole = "owner" | ShareRole;
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
 }
 
 export interface Session {
-  token: string;
-  user: SessionUser;
+  user: User;
+  accessToken: string;
 }
 
-export interface BoardSummary {
+export interface Whiteboard {
   id: BoardId;
-  name: string;
+  title: string;
+  role: BoardRole;
+  owner: { id: string; name: string };
   createdAt: string;
   updatedAt: string;
 }
 
+/** Open board plus the Hocuspocus provider token (`jwt:` or `share:`). */
 export interface BoardAccess {
-  board: BoardSummary;
+  board: Whiteboard;
   role: BoardRole;
   token: string;
 }
 
 export interface ShareLink {
-  token: string;
-  role: BoardRole;
+  id: string;
   boardId: BoardId;
-  path: string;
+  role: ShareRole;
+  token: string;
+  revokedAt: string | null;
+  createdAt: string;
 }
 
-export interface Credentials {
-  displayName: string;
-  password: string;
-}
-
-/**
- * HTTP contract the mock client and the real client both implement.
- * Swap `VITE_USE_MOCK=false` and point `VITE_API_URL` at the backend.
- *
- * POST /api/auth/register { displayName, password } -> Session
- * POST /api/auth/login { displayName, password } -> Session
- * POST /api/auth/logout
- * GET /api/boards -> BoardSummary[]
- * POST /api/boards { name } -> BoardSummary
- * PATCH /api/boards/:id { name } -> BoardSummary
- * DELETE /api/boards/:id
- * GET /api/boards/:id -> { board, role }
- * POST /api/boards/:id/shares { role } -> ShareLink
- * POST /api/shares/redeem { token } -> BoardAccess
- *
- * The sync socket is separate: Hocuspocus document name is the board id,
- * and the bearer/share token is the provider token. `user` matches
- * BoardParticipant plus a display color.
- */
 export interface WhiteboardApi {
-  register(input: Credentials): Promise<Session>;
-  login(input: Credentials): Promise<Session>;
+  register(input: {
+    email: string;
+    password: string;
+    name: string;
+  }): Promise<Session>;
+  login(input: { email: string; password: string }): Promise<Session>;
   logout(): Promise<void>;
-  listBoards(): Promise<BoardSummary[]>;
-  createBoard(input: { name: string }): Promise<BoardSummary>;
-  renameBoard(id: BoardId, name: string): Promise<BoardSummary>;
+  listBoards(): Promise<Whiteboard[]>;
+  createBoard(input: { title: string }): Promise<Whiteboard>;
+  renameBoard(id: BoardId, title: string): Promise<Whiteboard>;
   deleteBoard(id: BoardId): Promise<void>;
-  getBoard(id: BoardId): Promise<BoardAccess>;
-  createShareLink(boardId: BoardId, role: BoardRole): Promise<ShareLink>;
-  redeemShareToken(token: string): Promise<BoardAccess>;
+  getBoard(id: BoardId): Promise<Whiteboard>;
+  createShareLink(boardId: BoardId, role: ShareRole): Promise<ShareLink>;
+  listShareLinks(boardId: BoardId): Promise<ShareLink[]>;
+  revokeShareLink(boardId: BoardId, linkId: string): Promise<ShareLink>;
+  redeemShareToken(token: string): Promise<Whiteboard>;
 }
