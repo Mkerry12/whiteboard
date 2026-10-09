@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -44,3 +44,90 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    # Image tags and credentials match docker-compose.dev.yml and .env.example.
+    # JWT_SECRET is the local placeholder from apps/server/.env.example, not a real secret.
+    # Health commands, intervals, timeouts, and start periods match Compose.
+    # Retries are higher so a cold service container is ready before tests start.
+    services:
+      postgres:
+        image: postgres:16.15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: whiteboard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d whiteboard"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --health-start-period 10s
+      redis:
+        image: redis:7.4.11
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --health-start-period 5s
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/whiteboard
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: local-dev-secret-change-me
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Integration tests
+        run: pnpm --filter @whiteboard/server test:integration --reporter=default --reporter=json --outputFile=/tmp/server-integration.json
+
+      - name: Require the integration suite to run
+        run: |
+          node --input-type=module <<'EOF'
+          import { readFileSync } from "node:fs";
+
+          const report = JSON.parse(
+            readFileSync("/tmp/server-integration.json", "utf8"),
+          );
+          const skipped = (report.testResults ?? []).flatMap((file) =>
+            (file.assertionResults ?? []).filter((test) =>
+              ["skipped", "pending", "todo", "disabled"].includes(test.status),
+            ),
+          );
+          const passed = report.numPassedTests ?? 0;
+          const total = report.numTotalTests ?? 0;
+          const pending = report.numPendingTests ?? 0;
+          if (
+            report.success !== true ||
+            passed < 1 ||
+            passed !== total ||
+            pending > 0 ||
+            skipped.length > 0
+          ) {
+            const names = skipped.map((test) => test.fullName).join(", ");
+            console.error(
+              `Integration suite did not fully execute (passed=${passed}, total=${total}, pending=${pending}, skipped=${skipped.length}, success=${report.success}). ${names}`,
+            );
+            process.exit(1);
+          }
+          console.log(`Integration suite executed ${passed} test(s).`);
+          EOF

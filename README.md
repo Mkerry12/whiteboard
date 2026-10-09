@@ -12,7 +12,7 @@
 
 ## 环境
 
-- Node.js 20.19 或更高。`.nvmrc` 写的是 `20`，安装的是当前 Node 20；ESLint 10 需要 20.19 以上
+- Node.js 22 或更高。`.nvmrc` 写的是 `22`。Node 20 已停止维护
 - pnpm `10.33.4`，见根目录 `package.json` 的 `packageManager`
 - Docker Compose v2，仅用于启动本地数据库
 
@@ -65,6 +65,13 @@ pnpm format
   }
 }
 ```
+
+## CI
+
+`.github/workflows/ci.yml` 在 Node 22 上跑两个 job。
+
+- Lint、typecheck、test、build：`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm build`。单元测试不连接数据库。
+- 集成测试：服务容器是 PostgreSQL 16（`postgres:16.15`）和 Redis 7（`redis:7.4.11`），账号与 `docker-compose.dev.yml`、`.env.example` 相同。健康检查通过后才执行 `pnpm --filter @whiteboard/server test:integration`。`JWT_SECRET` 用的是本地占位，不是真实密钥。如果这组测试被跳过，job 会失败。
 
 ## 拉取请求约定
 
