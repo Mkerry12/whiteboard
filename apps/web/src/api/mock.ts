@@ -1,14 +1,12 @@
 import type { BoardId } from "@whiteboard/shared";
 import { ApiError } from "./errors";
 import type {
-  BoardAccess,
   BoardRole,
-  BoardSummary,
-  SessionUser,
   ShareLink,
+  User,
+  Whiteboard,
   WhiteboardApi,
 } from "./types";
-import { colorFromId } from "../theme/palette";
 
 export const MOCK_STORAGE_KEY = "whiteboard.mock.v1";
 
@@ -18,19 +16,23 @@ export interface KeyValueStorage {
   removeItem(key: string): void;
 }
 
-interface StoredUser extends SessionUser {
+interface StoredUser extends User {
   password: string;
 }
 
-interface StoredBoard extends BoardSummary {
+interface StoredBoard {
+  id: BoardId;
+  title: string;
   ownerId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface MockDb {
   users: StoredUser[];
   sessions: { token: string; userId: string }[];
   boards: StoredBoard[];
-  shares: { token: string; boardId: BoardId; role: BoardRole }[];
+  shares: ShareLink[];
 }
 
 const EMPTY: MockDb = { users: [], sessions: [], boards: [], shares: [] };
@@ -77,21 +79,32 @@ export function createMockApi(options?: {
 
   function requireUser(db: MockDb): StoredUser {
     const token = getToken();
-    if (!token) throw new ApiError(401, "Sign in required");
+    if (!token) throw new ApiError(401, "Sign in required", "UNAUTHORIZED");
     const session = db.sessions.find((item) => item.token === token);
     const user = db.users.find((item) => item.id === session?.userId);
-    if (!user) throw new ApiError(401, "Sign in required");
+    if (!user) throw new ApiError(401, "Sign in required", "UNAUTHORIZED");
     return user;
   }
 
-  function publicUser(user: StoredUser): SessionUser {
-    return { id: user.id, displayName: user.displayName, color: user.color };
+  function publicUser(user: StoredUser): User {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      createdAt: user.createdAt,
+    };
   }
 
-  function publicBoard(board: StoredBoard): BoardSummary {
+  function publicBoard(
+    board: StoredBoard,
+    role: BoardRole,
+    owner: StoredUser,
+  ): Whiteboard {
     return {
       id: board.id,
-      name: board.name,
+      title: board.title,
+      role,
+      owner: { id: owner.id, name: owner.name },
       createdAt: board.createdAt,
       updatedAt: board.updatedAt,
     };
@@ -99,44 +112,44 @@ export function createMockApi(options?: {
 
   return {
     async register(input) {
-      const displayName = cleanName(input.displayName, "Name");
+      const email = cleanEmail(input.email);
+      const name = cleanName(input.name, "Name", 80);
       const password = cleanPassword(input.password);
       const db = load();
-      if (
-        db.users.some(
-          (user) =>
-            user.displayName.toLowerCase() === displayName.toLowerCase(),
-        )
-      ) {
-        throw new ApiError(409, "That name is already registered");
+      if (db.users.some((user) => user.email === email)) {
+        throw new ApiError(
+          409,
+          "An account with this email already exists",
+          "CONFLICT",
+        );
       }
+      const now = new Date().toISOString();
       const user: StoredUser = {
         id: crypto.randomUUID(),
-        displayName,
+        email,
+        name,
         password,
-        color: colorFromId(displayName),
+        createdAt: now,
       };
-      const token = crypto.randomUUID();
+      const accessToken = crypto.randomUUID();
       db.users.push(user);
-      db.sessions.push({ token, userId: user.id });
+      db.sessions.push({ token: accessToken, userId: user.id });
       save(db);
-      return { token, user: publicUser(user) };
+      return { accessToken, user: publicUser(user) };
     },
 
     async login(input) {
-      const displayName = cleanName(input.displayName, "Name");
+      const email = cleanEmail(input.email);
       const password = cleanPassword(input.password);
       const db = load();
-      const user = db.users.find(
-        (item) => item.displayName.toLowerCase() === displayName.toLowerCase(),
-      );
+      const user = db.users.find((item) => item.email === email);
       if (!user || user.password !== password) {
-        throw new ApiError(401, "Name or password is incorrect");
+        throw new ApiError(401, "Invalid email or password", "UNAUTHORIZED");
       }
-      const token = crypto.randomUUID();
-      db.sessions.push({ token, userId: user.id });
+      const accessToken = crypto.randomUUID();
+      db.sessions.push({ token: accessToken, userId: user.id });
       save(db);
-      return { token, user: publicUser(user) };
+      return { accessToken, user: publicUser(user) };
     },
 
     async logout() {
@@ -152,36 +165,36 @@ export function createMockApi(options?: {
       const user = requireUser(db);
       return db.boards
         .filter((board) => board.ownerId === user.id)
-        .map(publicBoard)
+        .map((board) => publicBoard(board, "owner", user))
         .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
     },
 
     async createBoard(input) {
-      const name = cleanName(input.name, "Board name");
+      const title = cleanName(input.title, "Board name", 200);
       const db = load();
       const user = requireUser(db);
       const now = new Date().toISOString();
       const board: StoredBoard = {
         id: crypto.randomUUID(),
-        name,
+        title,
         ownerId: user.id,
         createdAt: now,
         updatedAt: now,
       };
       db.boards.push(board);
       save(db);
-      return publicBoard(board);
+      return publicBoard(board, "owner", user);
     },
 
-    async renameBoard(id, name) {
-      const nextName = cleanName(name, "Board name");
+    async renameBoard(id, title) {
+      const nextTitle = cleanName(title, "Board name", 200);
       const db = load();
       const user = requireUser(db);
       const board = ownedBoard(db, user.id, id);
-      board.name = nextName;
+      board.title = nextTitle;
       board.updatedAt = new Date().toISOString();
       save(db);
-      return publicBoard(board);
+      return publicBoard(board, "owner", user);
     },
 
     async deleteBoard(id) {
@@ -197,39 +210,61 @@ export function createMockApi(options?: {
       const db = load();
       const user = requireUser(db);
       const board = ownedBoard(db, user.id, id);
-      const token = getToken();
-      if (!token) throw new ApiError(401, "Sign in required");
-      return { board: publicBoard(board), role: "edit", token };
+      return publicBoard(board, "owner", user);
     },
 
     async createShareLink(boardId, role) {
       const db = load();
       const user = requireUser(db);
       ownedBoard(db, user.id, boardId);
-      const token = crypto.randomUUID();
-      db.shares.push({ token, boardId, role });
-      save(db);
       const link: ShareLink = {
-        token,
-        role,
+        id: crypto.randomUUID(),
         boardId,
-        path: `/boards/${boardId}?share=${token}`,
+        role,
+        token: crypto.randomUUID().replace(/-/g, ""),
+        revokedAt: null,
+        createdAt: new Date().toISOString(),
       };
+      db.shares.push(link);
+      save(db);
+      return link;
+    },
+
+    async listShareLinks(boardId) {
+      const db = load();
+      const user = requireUser(db);
+      ownedBoard(db, user.id, boardId);
+      return db.shares
+        .filter((share) => share.boardId === boardId)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    },
+
+    async revokeShareLink(boardId, linkId) {
+      const db = load();
+      const user = requireUser(db);
+      ownedBoard(db, user.id, boardId);
+      const link = db.shares.find(
+        (share) => share.id === linkId && share.boardId === boardId,
+      );
+      if (!link) throw new ApiError(404, "Share link not found", "NOT_FOUND");
+      if (!link.revokedAt) link.revokedAt = new Date().toISOString();
+      save(db);
       return link;
     },
 
     async redeemShareToken(token) {
       const db = load();
+      requireUser(db);
       const share = db.shares.find((item) => item.token === token);
-      if (!share) throw new ApiError(404, "This share link is not valid");
+      if (!share || share.revokedAt) {
+        throw new ApiError(404, "Share link not found", "NOT_FOUND");
+      }
       const board = db.boards.find((item) => item.id === share.boardId);
-      if (!board) throw new ApiError(404, "This board is gone");
-      const access: BoardAccess = {
-        board: publicBoard(board),
-        role: share.role,
-        token: share.token,
-      };
-      return access;
+      const owner = db.users.find((item) => item.id === board?.ownerId);
+      if (!board || !owner) {
+        throw new ApiError(404, "Share link not found", "NOT_FOUND");
+      }
+      return publicBoard(board, share.role, owner);
     },
   };
 }
@@ -237,21 +272,36 @@ export function createMockApi(options?: {
 function ownedBoard(db: MockDb, ownerId: string, id: BoardId): StoredBoard {
   const board = db.boards.find((item) => item.id === id);
   if (!board || board.ownerId !== ownerId) {
-    throw new ApiError(404, "Board not found");
+    throw new ApiError(404, "Whiteboard not found", "NOT_FOUND");
   }
   return board;
 }
 
-function cleanName(value: string, label: string): string {
+function cleanEmail(value: string): string {
+  const email = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new ApiError(400, "Invalid email", "VALIDATION_ERROR");
+  }
+  return email;
+}
+
+function cleanName(value: string, label: string, max: number): string {
   const trimmed = value.trim();
-  if (!trimmed) throw new ApiError(400, `${label} is required`);
-  if (trimmed.length > 80) throw new ApiError(400, `${label} is too long`);
+  if (!trimmed)
+    throw new ApiError(400, `${label} is required`, "VALIDATION_ERROR");
+  if (trimmed.length > max) {
+    throw new ApiError(400, `${label} is too long`, "VALIDATION_ERROR");
+  }
   return trimmed;
 }
 
 function cleanPassword(value: string): string {
-  if (value.trim().length < 4) {
-    throw new ApiError(400, "Password must be at least 4 characters");
+  if (value.length < 8 || value.length > 128) {
+    throw new ApiError(
+      400,
+      "Password must be 8–128 characters",
+      "VALIDATION_ERROR",
+    );
   }
   return value;
 }

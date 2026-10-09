@@ -2,15 +2,16 @@
 import { onMounted, ref } from "vue";
 import type { BoardId } from "@whiteboard/shared";
 import { getApi } from "../api";
-import type { BoardRole, ShareLink } from "../api/types";
+import { shareLinkPath } from "../api/contract";
+import type { ShareLink, ShareRole } from "../api/types";
 
 const props = defineProps<{ boardId: BoardId }>();
 const emit = defineEmits<{ close: [] }>();
 
-const editLink = ref<ShareLink | null>(null);
-const readLink = ref<ShareLink | null>(null);
+const editorLink = ref<ShareLink | null>(null);
+const viewerLink = ref<ShareLink | null>(null);
 const error = ref("");
-const copied = ref<BoardRole | null>(null);
+const copied = ref<ShareRole | null>(null);
 
 onMounted(() => {
   void load();
@@ -20,23 +21,25 @@ async function load(): Promise<void> {
   error.value = "";
   try {
     const api = getApi();
-    const [edit, read] = await Promise.all([
-      api.createShareLink(props.boardId, "edit"),
-      api.createShareLink(props.boardId, "read"),
-    ]);
-    editLink.value = edit;
-    readLink.value = read;
+    const existing = await api.listShareLinks(props.boardId);
+    const active = existing.filter((link) => link.revokedAt === null);
+    editorLink.value =
+      active.find((link) => link.role === "editor") ??
+      (await api.createShareLink(props.boardId, "editor"));
+    viewerLink.value =
+      active.find((link) => link.role === "viewer") ??
+      (await api.createShareLink(props.boardId, "viewer"));
   } catch (err) {
     error.value = err instanceof Error ? err.message : "Could not create links";
   }
 }
 
 function absolute(link: ShareLink | null): string {
-  if (!link) return "";
-  return new URL(link.path, window.location.origin).href;
+  if (!link || link.revokedAt) return "";
+  return new URL(shareLinkPath(link), window.location.origin).href;
 }
 
-async function copy(role: BoardRole, link: ShareLink | null): Promise<void> {
+async function copy(role: ShareRole, link: ShareLink | null): Promise<void> {
   const value = absolute(link);
   if (!value) return;
   try {
@@ -44,6 +47,32 @@ async function copy(role: BoardRole, link: ShareLink | null): Promise<void> {
     copied.value = role;
   } catch {
     copied.value = null;
+  }
+}
+
+async function revoke(role: ShareRole): Promise<void> {
+  const link = role === "editor" ? editorLink.value : viewerLink.value;
+  if (!link) return;
+  error.value = "";
+  try {
+    await getApi().revokeShareLink(props.boardId, link.id);
+    if (role === "editor") editorLink.value = null;
+    else viewerLink.value = null;
+    if (copied.value === role) copied.value = null;
+  } catch (err) {
+    error.value =
+      err instanceof Error ? err.message : "Could not revoke the link";
+  }
+}
+
+async function create(role: ShareRole): Promise<void> {
+  error.value = "";
+  try {
+    const link = await getApi().createShareLink(props.boardId, role);
+    if (role === "editor") editorLink.value = link;
+    else viewerLink.value = link;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "Could not create links";
   }
 }
 
@@ -71,9 +100,36 @@ function onKeydown(event: KeyboardEvent): void {
         <h3>Can edit</h3>
         <p>Anyone with this link can draw.</p>
         <div class="share-row">
-          <input readonly :value="absolute(editLink)" aria-label="Edit link" />
-          <button type="button" class="primary" @click="copy('edit', editLink)">
-            {{ copied === "edit" ? "Copied" : "Copy" }}
+          <input
+            readonly
+            :value="absolute(editorLink)"
+            aria-label="Edit link"
+            data-testid="share-editor-link"
+          />
+          <button
+            type="button"
+            class="primary"
+            :disabled="!editorLink"
+            @click="copy('editor', editorLink)"
+          >
+            {{ copied === "editor" ? "Copied" : "Copy" }}
+          </button>
+          <button
+            v-if="editorLink"
+            type="button"
+            class="text-button danger"
+            data-testid="revoke-editor"
+            @click="revoke('editor')"
+          >
+            Revoke
+          </button>
+          <button
+            v-else
+            type="button"
+            class="text-button"
+            @click="create('editor')"
+          >
+            New link
           </button>
         </div>
       </section>
@@ -85,11 +141,34 @@ function onKeydown(event: KeyboardEvent): void {
         <div class="share-row">
           <input
             readonly
-            :value="absolute(readLink)"
+            :value="absolute(viewerLink)"
             aria-label="View-only link"
+            data-testid="share-viewer-link"
           />
-          <button type="button" class="primary" @click="copy('read', readLink)">
-            {{ copied === "read" ? "Copied" : "Copy" }}
+          <button
+            type="button"
+            class="primary"
+            :disabled="!viewerLink"
+            @click="copy('viewer', viewerLink)"
+          >
+            {{ copied === "viewer" ? "Copied" : "Copy" }}
+          </button>
+          <button
+            v-if="viewerLink"
+            type="button"
+            class="text-button danger"
+            data-testid="revoke-viewer"
+            @click="revoke('viewer')"
+          >
+            Revoke
+          </button>
+          <button
+            v-else
+            type="button"
+            class="text-button"
+            @click="create('viewer')"
+          >
+            New link
           </button>
         </div>
       </section>

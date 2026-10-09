@@ -2,6 +2,7 @@
 import { onMounted, ref, watchEffect } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { getApi } from "../api";
+import { collaborationToken } from "../api/contract";
 import type { BoardAccess } from "../api/types";
 import { routeParam } from "../router/guard";
 import { useAuthStore } from "../stores/auth";
@@ -26,13 +27,24 @@ async function openBoard(): Promise<void> {
   try {
     const boardId = routeParam(route.params.boardId);
     if (share) {
-      const redeemed = await getApi().redeemShareToken(share);
-      if (redeemed.board.id !== boardId) {
+      const board = await getApi().redeemShareToken(share);
+      if (board.id !== boardId) {
         throw new Error("This share link does not match the board");
       }
-      access.value = redeemed;
+      access.value = {
+        board,
+        role: board.role,
+        token: collaborationToken("share", share),
+      };
     } else {
-      access.value = await getApi().getBoard(boardId);
+      const board = await getApi().getBoard(boardId);
+      const accessToken = auth.session?.accessToken;
+      if (!accessToken) throw new Error("Sign in required");
+      access.value = {
+        board,
+        role: board.role,
+        token: collaborationToken("jwt", accessToken),
+      };
     }
   } catch (err) {
     error.value =
@@ -44,18 +56,18 @@ async function openBoard(): Promise<void> {
 
 watchEffect(() => {
   document.title = access.value
-    ? `${access.value.board.name} · Whiteboard`
+    ? `${access.value.board.title} · Whiteboard`
     : "Whiteboard";
 });
 </script>
 
 <template>
   <BoardSession
-    v-if="access && auth.user"
+    v-if="access && auth.presence"
     :key="access.board.id + access.role + access.token"
     :access="access"
-    :user="auth.user"
-    :can-manage="canManage && access.role === 'edit'"
+    :user="auth.presence"
+    :can-manage="canManage && access.role === 'owner'"
   />
   <main v-else class="gate">
     <p v-if="loading">Opening board…</p>
