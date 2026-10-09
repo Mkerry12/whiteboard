@@ -64,7 +64,7 @@ VITE_USE_MOCK=false VITE_API_URL=http://localhost:3000 VITE_SYNC_URL=ws://localh
 
 Open http://localhost:5173. Register with an email, a display name, and a password of at least 8 characters. Create a board, rename it, and draw. Share → copy the edit link, revoke a link when you are done with it. A second account that opens the edit link sees the same shapes and cursors. A view-only link hides the tools, and the server drops that socket's writes. Deleting the board removes it from the list. Refreshing the editor reloads the last Yjs snapshot. Visiting `/boards` while logged out redirects to `/login`.
 
-`pnpm test` includes an API-level walk of that flow (`apps/server/test/client-flow.test.ts`) on an in-memory Postgres, with no Docker.
+`pnpm test` includes `apps/server/test/client-flow.test.ts`. That test starts the server and drives `createHttpApi` plus a Hocuspocus provider, using the same `jwt:` / `share:` tokens and `whiteboard:<id>` document names as the editor. It uses in-memory Postgres and does not need Docker. Point `LIVE_API_URL` and `LIVE_SYNC_URL` at an already running process to exercise that process instead.
 
 ## 常用命令
 

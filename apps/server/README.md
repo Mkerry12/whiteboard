@@ -59,7 +59,7 @@ Run a second instance for the Redis demo by setting a distinct `PORT` and `INSTA
 
 ## Tests
 
-`pnpm test` uses an in-process PGlite database. It covers registration and login, board permissions, a viewer connection that cannot change the server document, a raw WebSocket update that bypasses the provider on a read-only socket, and a restart that reloads the Yjs snapshot from the database. CI can run this without service containers.
+`pnpm test` uses an in-process PGlite database. It covers registration and login, board permissions, a viewer connection that cannot change the server document, a raw WebSocket update that bypasses the provider on a read-only socket, and a restart that reloads the Yjs snapshot from the database. `test/client-flow.test.ts` drives the web app's `createHttpApi` and a Hocuspocus provider against that server. It is left out of `tsc` because the web modules use extensionless imports; Vitest still runs it. CI can run this without service containers.
 
 `pnpm --filter @whiteboard/server test:integration` is the command for a job that has PostgreSQL and Redis. It reads `DATABASE_URL` and `REDIS_URL`. When either variable is missing the file is skipped and the command exits 0. When both are set it migrates, truncates `users`, `whiteboards`, `share_links`, and `board_members`, and then:
 
