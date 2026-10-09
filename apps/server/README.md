@@ -4,7 +4,7 @@ HTTP API and Hocuspocus collaboration server for the whiteboard. One process ser
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - pnpm 10
 - PostgreSQL and Redis from the repo-root `docker-compose.dev.yml`
 
