@@ -98,7 +98,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Integration tests
-        run: pnpm --filter @whiteboard/server test:integration -- --reporter=default --reporter=json --outputFile=/tmp/server-integration.json
+        run: pnpm --filter @whiteboard/server test:integration --reporter=default --reporter=json --outputFile=/tmp/server-integration.json
 
       - name: Require the integration suite to run
         run: |
