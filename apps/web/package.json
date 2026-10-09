@@ -14,7 +14,7 @@
     "sync-server": "tsx dev/sync-server.ts"
   },
   "dependencies": {
-    "@hocuspocus/provider": "^4.7.0",
+    "@hocuspocus/provider": "3.4.4",
     "@whiteboard/shared": "workspace:*",
     "fractional-indexing": "^4.0.0",
     "konva": "^10.7.1",
@@ -23,10 +23,8 @@
     "vue-router": "4.5.1",
     "yjs": "^13.6.27"
   },
-  "optionalDependencies": {
-    "@hocuspocus/server": "^4.7.0"
-  },
   "devDependencies": {
+    "@hocuspocus/server": "3.4.4",
     "@types/node": "catalog:",
     "@vitejs/plugin-vue": "^6.0.1",
     "eslint": "catalog:",
