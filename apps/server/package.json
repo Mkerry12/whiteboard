@@ -46,7 +46,7 @@
     "prettier": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
-    "vitest": "^5.0.3",
+    "vitest": "^4.1.11",
     "y-protocols": "^1.0.6"
   }
 }
